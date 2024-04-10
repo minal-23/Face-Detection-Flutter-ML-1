@@ -10,9 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 late List<CameraDescription> cameras;
-
+var _databaseHelper = DatabaseHelper();
 Future<void> main() async {
-  var _databaseHelper = DatabaseHelper();
   WidgetsFlutterBinding.ensureInitialized();
   await _databaseHelper.init();
   print("DATABASE  INITIALIZED");
@@ -179,11 +178,12 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
             GestureDetector(
-              onTap: () {
-                // Navigator.push(
-                //     context,
-                //     MaterialPageRoute(
-                //         builder: (context) => RealTimeFaceDetection()));
+              onTap: () async {
+                // Ensure this function is marked as async
+                final rowsDeleted =
+                    await _databaseHelper.deleteAllRows(); // Use await here
+                print(
+                    'Deleted $rowsDeleted rows'); // This should now print the correct number of deleted rows
               },
               child: Container(
                 height: 50,

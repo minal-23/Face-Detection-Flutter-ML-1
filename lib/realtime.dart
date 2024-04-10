@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
+import 'package:face_detection/Database.dart';
+import 'package:face_detection/nextscreen.dart';
 import 'package:quiver/collection.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as imglib;
@@ -36,15 +38,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   late List<Face> faces;
   late CameraDescription description = cameras[1];
   CameraLensDirection camDirec = CameraLensDirection.front;
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   initializeCamera();
-  //   loadModel().then((_) {
-  //     print(
-  //         "hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii modellllllllllllllllllllllllllllllllllllllll");
-  //   });
-  // }
   @override
   void initState() {
     super.initState();
@@ -62,28 +55,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     });
   }
 
-  //code to initialize the camera feed
-  // initializeCamera() async {
-  //   //initialize detector
-  //   final options =
-  //       FaceDetectorOptions(enableContours: true, enableLandmarks: true);
-  //   faceDetector = FaceDetector(options: options);
-
-  //   controller = CameraController(description, ResolutionPreset.high);
-  //   await controller.initialize().then((_) {
-  //     if (!mounted) {
-  //       return;
-  //     }
-  //   tempDir = await getApplicationDocumentsDirectory();
-  //   String _embPath = tempDir!.path + '/emb.json';
-  //   jsonFile = new File(_embPath);
-  //   if (jsonFile!.existsSync())
-  //     data = json.decode(jsonFile!.readAsStringSync());
-  //     controller.startImageStream((image) => {
-  //           if (!isBusy) {isBusy = true, img = image, doFaceDetectionOnFrame()}
-  //         });
-  //   });
-  // }
   initializeCamera() async {
     // Initialize detector
     final options =
@@ -97,12 +68,12 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       return;
     }
 
-    tempDir = await getApplicationDocumentsDirectory();
-    String _embPath = tempDir!.path + '/save.json';
-    jsonFile = new File(_embPath);
-    if (jsonFile!.existsSync()) {
-      data = json.decode(jsonFile!.readAsStringSync());
-    }
+    // tempDir = await getApplicationDocumentsDirectory();
+    // String _embPath = tempDir!.path + '/save.json';
+    // jsonFile = new File(_embPath);
+    // if (jsonFile!.existsSync()) {
+    //   data = json.decode(jsonFile!.readAsStringSync());
+    // }
 
     controller.startImageStream((image) {
       if (!isBusy) {
@@ -124,16 +95,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   //face detection on a frame
   dynamic _scanResults;
   CameraImage? img;
-
-  // doFaceDetectionOnFrame() async {
-  //   var frameImg = getInputImage();
-  //   List<Face> faces = await faceDetector.processImage(frameImg);
-  //    imglib.Image covertedImage=_convertCameraImage(img!,camDirec);
-  //   setState(() {
-  //     _scanResults = faces;
-  //     isBusy = false;
-  //   });
-  // }
 
   Future loadModel() async {
     try {
@@ -179,7 +140,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       croppedImage = imglib.copyResizeCropSquare(croppedImage, 112);
 
       // Run the face recognition model on the processed image
-      String res = _recog(croppedImage);
+      String res = await _recog(croppedImage);
       // print(_recog(croppedImage));
       finalResult.add(res, face);
 
@@ -198,8 +159,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       CameraImage image, CameraLensDirection _dir) {
     int width = image.width;
     int height = image.height;
-    // imglib -> Image package from https://pub.dartlang.org/packages/image
-    var img = imglib.Image(width, height); // Create Image buffer
+    var img = imglib.Image(width, height);
     const int hexFF = 0xFF000000;
     final int uvyButtonStride = image.planes[1].bytesPerRow;
     final int uvPixelStride = image.planes[1].bytesPerPixel!;
@@ -228,27 +188,48 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     return img1;
   }
 
-  String _recog(imglib.Image img) {
+  Future<String> _recog(imglib.Image img) async {
     List input = imageToByteListFloat32(img, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
     List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
     interpreter.run(input, output);
     output = output.reshape([192]);
     e1 = List.from(output);
-    return compare(e1!).toUpperCase();
-    // return e1!;
+    return await compare(e1!);
   }
 
-  String compare(List currEmb) {
-    if (data.length == 0) return "No Face saved";
+  // String compare(List currEmb) {
+  //   if (data.length == 0) return "No Face saved";
+  //   double minDist = 999;
+  //   double currDist = 0.0;
+  //   String predRes = "NOT RECOGNIZED";
+  //   for (String label in data.keys) {
+  //     currDist = euclideanDistance(data[label], currEmb);
+  //     if (currDist <= threshold && currDist < minDist) {
+  //       minDist = currDist;
+  //       predRes = label;
+  //     }
+  //   }
+  //   print(minDist.toString() + " " + predRes);
+  //   return predRes;
+  // }
+  Future<String> compare(List currEmb) async {
+    DatabaseHelper dbHelper = DatabaseHelper();
+    List<Map<String, dynamic>> rows = await dbHelper.queryAllRows();
+    if (rows.isEmpty) {
+      return "NO FACE SAVED";
+    }
     double minDist = 999;
-    double currDist = 0.0;
     String predRes = "NOT RECOGNIZED";
-    for (String label in data.keys) {
-      currDist = euclideanDistance(data[label], currEmb);
+
+    for (Map row in rows) {
+      // Decode the JSON string back into a list
+      List e1 = json.decode(row[DatabaseHelper.columnEmbedding]);
+      double currDist = euclideanDistance(e1, currEmb);
       if (currDist <= threshold && currDist < minDist) {
         minDist = currDist;
-        predRes = label;
+        predRes =
+            row[DatabaseHelper.columnPayee]; // Use the payee name as the label
       }
     }
     print(minDist.toString() + " " + predRes);
@@ -263,21 +244,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     return sqrt(sum);
   }
 
-  // Float32List imageToByteListFloat32(
-  //     imglib.Image image, int inputSize, double mean, double std) {
-  //   var convertedBytes = Float32List(1 * inputSize * inputSize * 3);
-  //   var buffer = Float32List.view(convertedBytes.buffer);
-  //   int pixelIndex = 0;
-  //   for (var i = 0; i < inputSize; i++) {
-  //     for (var j = 0; j < inputSize; j++) {
-  //       var pixel = image.getPixel(j, i);
-  //       buffer[pixelIndex++] = (imglib.getRed(pixel) - mean) / std;
-  //       buffer[pixelIndex++] = (imglib.getGreen(pixel) - mean) / std;
-  //       buffer[pixelIndex++] = (imglib.getBlue(pixel) - mean) / std;
-  //     }
-  //   }
-  //   return convertedBytes.buffer.asFloat32List();
-  // }
   Float32List imageToByteListFloat32(
       imglib.Image image, int inputSize, double mean, double std) {
     var convertedBytes = Float32List(1 * inputSize * inputSize * 3);
@@ -331,6 +297,23 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   }
 
   //Show rectangles around detected faces
+  // Widget buildResult() {
+  //   if (_scanResults == null ||
+  //       controller == null ||
+  //       !controller.value.isInitialized) {
+  //     return Text('');
+  //   }
+
+  //   final Size imageSize = Size(
+  //     controller.value.previewSize!.height,
+  //     controller.value.previewSize!.width,
+  //   );
+  //   CustomPainter painter =
+  //       FaceDetectorPainter(imageSize, _scanResults, camDirec);
+  //   return CustomPaint(
+  //     painter: painter,
+  //   );
+  // }
   Widget buildResult() {
     if (_scanResults == null ||
         controller == null ||
@@ -342,11 +325,37 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       controller.value.previewSize!.height,
       controller.value.previewSize!.width,
     );
-    CustomPainter painter =
-        FaceDetectorPainter(imageSize, _scanResults, camDirec);
-    return CustomPaint(
-      painter: painter,
+    final Size widgetSize =
+        MediaQuery.of(context).size; // Obtain the size of the widget
+    // Create the painter instance here
+    final FaceDetectorPainter painter = FaceDetectorPainter(
+        imageSize, _scanResults, camDirec, onFaceTap, widgetSize);
+
+    // Wrap the CustomPaint widget with a GestureDetector
+    return GestureDetector(
+      onTapDown: (details) {
+        final Offset localPosition = details.localPosition;
+        // Directly call the handleTap method of the painter instance
+        painter
+            .handleTap(localPosition); // Call handleTap with the tap position
+      },
+      child: CustomPaint(
+        size: Size(widgetSize.width,
+            widgetSize.height), // Set the size of the CustomPaint widget
+        painter: painter,
+      ),
     );
+  }
+
+  void onFaceTap(String label) {
+    if (label != "NOT RECOGNIZED") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NextScreen(name: label),
+        ),
+      );
+    }
   }
 
   //toggle camera direction
@@ -365,55 +374,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
 
     initializeCamera();
   }
-
-  // void _handle(String text) {
-  //   data[text] = e1;
-  //   jsonFile!.writeAsStringSync(json.encode(data));
-  //   initializeCamera();
-  // }
-
-  // void _addLabel() {
-  //   setState(() {
-  //     controller = null;
-  //   });
-  //   print("Adding new face");
-  //   var alert = new AlertDialog(
-  //     title: new Text("Add Face"),
-  //     content: new Row(
-  //       children: <Widget>[
-  //         new Expanded(
-  //           child: new TextField(
-  //             controller: _name,
-  //             autofocus: true,
-  //             decoration: new InputDecoration(
-  //                 labelText: "Name", icon: new Icon(Icons.face)),
-  //           ),
-  //         )
-  //       ],
-  //     ),
-  //     actions: <Widget>[
-  //       TextButton(
-  //           child: Text("Save"),
-  //           onPressed: () {
-  //             _handle(_name.text.toUpperCase());
-  //             _name.clear();
-  //             Navigator.pop(context);
-  //           }),
-  //       TextButton(
-  //         child: Text("Cancel"),
-  //         onPressed: () {
-  //           initializeCamera();
-  //           Navigator.pop(context);
-  //         },
-  //       )
-  //     ],
-  //   );
-  //   showDialog(
-  //       context: context,
-  //       builder: (context) {
-  //         return alert;
-  //       });
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -505,74 +465,15 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
 
 // class FaceDetectorPainter extends CustomPainter {
 //   FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2);
-
-//   final Size absoluteImageSize;
-//   final List<Face> faces;
-//   CameraLensDirection camDire2;
-
-//   @override
-//   void paint(Canvas canvas, Size size) {
-//     final double scaleX = size.width / absoluteImageSize.width;
-//     final double scaleY = size.height / absoluteImageSize.height;
-
-//     final Paint paint = Paint()
-//       ..style = PaintingStyle.stroke
-//       ..strokeWidth = 2.0
-//       ..color = Colors.red;
-
-//     for (Face face in faces) {
-//       canvas.drawRect(
-//         Rect.fromLTRB(
-//           camDire2 == CameraLensDirection.front
-//               ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-//               : face.boundingBox.left * scaleX,
-//           face.boundingBox.top * scaleY,
-//           camDire2 == CameraLensDirection.front
-//               ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-//               : face.boundingBox.right * scaleX,
-//           face.boundingBox.bottom * scaleY,
-//         ),
-//         paint,
-//       );
-//     }
-//     Paint p2 = Paint();
-//     p2.color = Colors.green;
-//     p2.style = PaintingStyle.stroke;
-//     p2.strokeWidth = 5;
-
-//     for (Face face in faces) {
-//       Map<FaceContourType, FaceContour?> con = face.contours;
-//       List<Offset> offsetPoints = <Offset>[];
-//       con.forEach((key, value) {
-//         if (value != null) {
-//           List<Point<int>>? points = value.points;
-//           for (Point p in points) {
-//             Offset offset = Offset(
-//                 camDire2 == CameraLensDirection.front
-//                     ? (absoluteImageSize.width - p.x.toDouble()) * scaleX
-//                     : p.x.toDouble() * scaleX,
-//                 p.y.toDouble() * scaleY);
-//             offsetPoints.add(offset);
-//           }
-//           canvas.drawPoints(PointMode.points, offsetPoints, p2);
-//         }
-//       });
-//     }
-//   }
-
-//   @override
-//   bool shouldRepaint(FaceDetectorPainter oldDelegate) {
-//     return oldDelegate.absoluteImageSize != absoluteImageSize ||
-//         oldDelegate.faces != faces;
-//   }
-// }
 class FaceDetectorPainter extends CustomPainter {
-  FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2);
-
+  FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2,
+      this.onFaceTap, this.size);
   final Size absoluteImageSize;
   final Multimap<String, Face>
       faces; // Assuming faces is a Multimap<String, Face>
   CameraLensDirection camDire2;
+  final Function(String) onFaceTap; // Ensure this is correctly typed
+  final Size size; // Ensure this is c
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -627,5 +528,30 @@ class FaceDetectorPainter extends CustomPainter {
   bool shouldRepaint(FaceDetectorPainter oldDelegate) {
     return oldDelegate.absoluteImageSize != absoluteImageSize ||
         oldDelegate.faces != faces;
+  }
+
+  void handleTap(Offset tapDetails) {
+    final double scaleX = size.width / absoluteImageSize.width;
+    final double scaleY = size.height / absoluteImageSize.height;
+
+    for (String label in faces.keys) {
+      for (Face face in faces[label]) {
+        final Rect faceRect = Rect.fromLTRB(
+          camDire2 == CameraLensDirection.front
+              ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
+              : face.boundingBox.left * scaleX,
+          face.boundingBox.top * scaleY,
+          camDire2 == CameraLensDirection.front
+              ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
+              : face.boundingBox.right * scaleX,
+          face.boundingBox.bottom * scaleY,
+        );
+
+        if (faceRect.contains(tapDetails)) {
+          onFaceTap(label); // Call the callback with the label
+          break;
+        }
+      }
+    }
   }
 }

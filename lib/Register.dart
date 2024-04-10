@@ -422,9 +422,9 @@ class _RegisterFaceState extends State<RegisterFace> {
   Future<bool> fetchUpiId(String mobileNumber, String emailId) async {
     bool upiIdFound = false;
     upiIdFound = await attemptFetchUpiIdWithMobileNumber(mobileNumber);
-    // if (!upiIdFound) {
-    //   upiIdFound = await attemptFetchUpiIdWithEmailId(emailId);
-    // }
+    if (!upiIdFound) {
+      upiIdFound = await attemptFetchUpiIdWithEmailId(emailId);
+    }
     if (!upiIdFound) {
       setState(() {
         _upiId = 'invalid';
@@ -477,9 +477,14 @@ class _RegisterFaceState extends State<RegisterFace> {
 
   Future<bool> attemptFetchUpiIdWithEmailId(String emailId) async {
     const upiExtensions = ["okhdfc", "okaxis", "okicici", "oksbi"];
+    int atIndex = emailId.indexOf('@');
+    String username = '';
+    if (atIndex != -1) {
+      username = emailId.substring(0, atIndex);
+    }
     print("Attempting to fetch UPI ID using email...");
     for (final extension in upiExtensions) {
-      String vpa = emailId;
+      String vpa = username;
       final fullVpa = '$vpa@$extension';
       const url =
           'https://upi-verification.p.rapidapi.com/v3/tasks/sync/verify_with_source/ind_vpa';
