@@ -2,19 +2,22 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:camera/camera.dart';
-import 'package:face_detection/camera.dart';
+import 'package:face_detection/Database.dart';
 import 'package:face_detection/realtime.dart';
-import 'package:face_detection/static.dart';
+import 'package:face_detection/register.dart';
 import 'package:flutter/material.dart';
-import 'register.dart';
+
 import 'package:path_provider/path_provider.dart';
 
 late List<CameraDescription> cameras;
 
 Future<void> main() async {
+  var _databaseHelper = DatabaseHelper();
   WidgetsFlutterBinding.ensureInitialized();
-
+  await _databaseHelper.init();
+  print("DATABASE  INITIALIZED");
   cameras = await availableCameras();
+
   runApp(MyApp());
 }
 
@@ -56,12 +59,13 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            SizedBox(
+              width: 20,
+            ),
             GestureDetector(
               onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => StaticFaceDetection()));
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => RegisterFace()));
               },
               child: Container(
                 height: 50,
@@ -72,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 child: Center(
                     child: Text(
-                  'STATIC',
+                  'register',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 30,
@@ -108,9 +112,53 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
             GestureDetector(
-              onTap: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => PickImage()));
+              onTap: () async {
+                // Define the path to the JSON file
+                final tempDir = await getApplicationDocumentsDirectory();
+                final String _embPath = tempDir.path + '/save.json';
+                final jsonFile = File(_embPath);
+
+                // Check if the file exists
+                if (jsonFile.existsSync()) {
+                  // Read the file
+                  final data = json.decode(jsonFile.readAsStringSync());
+
+                  // Extract the keys (names) from the data
+                  final names = data.keys.toList();
+
+                  // Convert the list of names to a single string with each name on a new line
+                  final namesText = names.join('\n');
+
+                  // Show a dialog with the names
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Saved Names'),
+                        content: SingleChildScrollView(
+                          child: ListBody(
+                            children: <Widget>[
+                              Text(namesText),
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            child: Text('Close'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                } else {
+                  // Show a message if the file does not exist
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('No saved data found.')),
+                  );
+                }
               },
               child: Container(
                 height: 50,
@@ -121,21 +169,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 child: Center(
                   child: Text(
-                    'Register',
+                    'saved data',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
             ),
             GestureDetector(
               onTap: () {
-                displayUserData(); // Call the function without await
-
-                // Navigate to the RealTimeFaceDetection screen
+                // Navigator.push(
+                //     context,
+                //     MaterialPageRoute(
+                //         builder: (context) => RealTimeFaceDetection()));
               },
               child: Container(
                 height: 50,
@@ -145,15 +193,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
-                  child: Text(
-                    'Saved Face',
-                    style: TextStyle(
+                    child: Text(
+                  'DELETE DATA',
+                  style: TextStyle(
                       color: Colors.white,
                       fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                      fontWeight: FontWeight.bold),
+                )),
               ),
             ),
 
