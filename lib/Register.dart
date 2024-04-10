@@ -319,8 +319,8 @@ class _RegisterFaceState extends State<RegisterFace> {
       DatabaseHelper.columnMobileNum: mobileNumber,
       DatabaseHelper.columnEmailId: email, // Corrected column name
       DatabaseHelper.columnUpiId: upiId,
-      DatabaseHelper.columnEmbedding: embeddingJson,
-      DatabaseHelper.columnPayee: payee
+      DatabaseHelper.columnPayee: payee,
+      DatabaseHelper.columnEmbedding: embeddingJson
     };
 
     // Insert the row into the database using the singleton instance
@@ -399,8 +399,8 @@ class _RegisterFaceState extends State<RegisterFace> {
                 }
               });
 
-              _number.clear();
-              _email.clear();
+              // _number.clear();
+              // _email.clear();
               Navigator.pop(context);
             }),
         TextButton(
