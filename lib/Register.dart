@@ -1157,7 +1157,7 @@ class _RegisterFaceState extends State<RegisterFace> {
       };
       final headers = {
         'content-type': 'application/json',
-        'X-RapidAPI-Key': '65246481d2msh765dc21fa6d36dbp1c47a6jsn8158346c839a',
+        'X-RapidAPI-Key': 'dfdbcfc0bamsh773946c31a0a351p121610jsnbab75afc8759',
         'X-RapidAPI-Host': 'upi-verification.p.rapidapi.com'
       };
       try {
@@ -1208,7 +1208,7 @@ class _RegisterFaceState extends State<RegisterFace> {
       final headers = {
         'content-type': 'application/json',
         'X-RapidAPI-Key':
-            '65246481d2msh765dc21fa6d36dbp1c47a6jsn8158346c839a', // Set your API key here
+            'dfdbcfc0bamsh773946c31a0a351p121610jsnbab75afc8759', // Set your API key here
         'X-RapidAPI-Host': 'upi-verification.p.rapidapi.com'
       };
       try {
