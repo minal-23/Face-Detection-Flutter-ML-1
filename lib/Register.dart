@@ -1144,7 +1144,7 @@ class _RegisterFaceState extends State<RegisterFace> {
   }
 
   Future<bool> attemptFetchUpiIdWithMobileNumber(String mobileNumber) async {
-    const upiExtensions = ["ybl", "apl", "ibl"];
+    const upiExtensions = ['ybl', 'ibl', 'axl'];
     String vpa = mobileNumber;
     for (final extension in upiExtensions) {
       final fullVpa = '$vpa@$extension';
