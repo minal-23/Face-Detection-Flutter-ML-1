@@ -53,6 +53,14 @@ class DatabaseHelper {
           ''');
   }
 
+  Future<int> deleteRow(int id) async {
+    return await _db.delete(
+      table,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
+  }
+
   // Helper methods
 
   // Inserts a row in the database where each key in the Map is a column name
