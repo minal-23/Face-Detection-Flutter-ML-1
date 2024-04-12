@@ -24,7 +24,6 @@ class RealTimeFaceDetection extends StatefulWidget {
 }
 
 class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
-  final TextEditingController _name = new TextEditingController();
   var interpreter;
   List? e1;
   bool tapped = false;
@@ -73,13 +72,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     if (!mounted) {
       return;
     }
-
-    // tempDir = await getApplicationDocumentsDirectory();
-    // String _embPath = tempDir!.path + '/save.json';
-    // jsonFile = new File(_embPath);
-    // if (jsonFile!.existsSync()) {
-    //   data = json.decode(jsonFile!.readAsStringSync());
-    // }
     maxZoomLevel = await controller.getMaxZoomLevel();
     print(
         "zoooooooooooooooooooooooooooooooooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm$maxZoomLevel");
@@ -126,10 +118,11 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       var frameImg = getInputImage();
       List<Face> faces = await faceDetector.processImage(frameImg);
       imglib.Image convertedImage = _convertCameraImage(img!, camDirec);
-      if (faces.length == 0)
+      if (faces.length == 0) {
         _faceFound = false;
-      else
+      } else {
         _faceFound = true;
+      }
       for (Face face in faces) {
         // Calculate the bounding box with a margin
         double x = face.boundingBox.left - 10;
@@ -208,17 +201,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     return img1;
   }
 
-  // Future<String> _recog(imglib.Image img) async {
-  //   List input = imageToByteListFloat32(img, 112, 128, 128);
-  //   input = input.reshape([1, 112, 112, 3]);
-  //   List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
-  //   interpreter.run(input, output);
-  //   output = output.reshape([192]);
-  //   e1 = List.from(output);
-  //   Map<String, String> result =
-  //       await compare(e1!); // This returns a Future<Map<String, String>>
-  //   return result['name']!;
-  // }
   Future<Map<String, String>> _recog(imglib.Image img) async {
     List input = imageToByteListFloat32(img, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
@@ -230,45 +212,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
         e1!); // This now correctly returns a Future<Map<String, String>>
   }
 
-  // String compare(List currEmb) {
-  //   if (data.length == 0) return "No Face saved";
-  //   double minDist = 999;
-  //   double currDist = 0.0;
-  //   String predRes = "NOT RECOGNIZED";
-  //   for (String label in data.keys) {
-  //     currDist = euclideanDistance(data[label], currEmb);
-  //     if (currDist <= threshold && currDist < minDist) {
-  //       minDist = currDist;
-  //       predRes = label;
-  //     }
-  //   }
-  //   print(minDist.toString() + " " + predRes);
-  //   return predRes;
-  // }
-  // Future<String> compare(List currEmb) async {
-  //   DatabaseHelper dbHelper = DatabaseHelper();
-  //   List<Map<String, dynamic>> rows = await dbHelper.queryAllRows();
-  //   if (rows.isEmpty) {
-  //     return "NO FACE SAVED";
-  //   }
-  //   double minDist = 999;
-  //   String predRes = "NOT RECOGNIZED";
-  //   String predUpi = "";
-
-  //   for (Map row in rows) {
-  //     // Decode the JSON string back into a list
-  //     List e1 = json.decode(row[DatabaseHelper.columnEmbedding]);
-  //     double currDist = euclideanDistance(e1, currEmb);
-  //     if (currDist <= threshold && currDist < minDist) {
-  //       minDist = currDist;
-  //       predUpi = row[DatabaseHelper.columnUpiId];
-  //       predRes =
-  //           row[DatabaseHelper.columnPayee]; // Use the payee name as the label
-  //     }
-  //   }
-  //   print(minDist.toString() + " " + predRes);
-  //   return predRes;
-  // }
   Future<Map<String, String>> compare(List currEmb) async {
     DatabaseHelper dbHelper = DatabaseHelper();
     List<Map<String, dynamic>> rows = await dbHelper.queryAllRows();
@@ -356,38 +299,11 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       controller.value.previewSize!.height,
       controller.value.previewSize!.width,
     );
-    final Size widgetSize =
-        MediaQuery.of(context).size; // Obtain the size of the widget
-    // Create the painter instance here
-    final FaceDetectorPainter painter = FaceDetectorPainter(
-        imageSize, _scanResults, camDirec, onFaceTap, widgetSize);
-
-    // Wrap the CustomPaint widget with a GestureDetector
-    return GestureDetector(
-      onTapDown: (details) {
-        final Offset localPosition = details.localPosition;
-        // Directly call the handleTap method of the painter instance
-        painter
-            .handleTap(localPosition); // Call handleTap with the tap position
-      },
-      child: CustomPaint(
-        size: Size(widgetSize.width,
-            widgetSize.height), // Set the size of the CustomPaint widget
-        painter: painter,
-      ),
+    CustomPainter painter =
+        FaceDetectorPainter(imageSize, _scanResults, camDirec);
+    return CustomPaint(
+      painter: painter,
     );
-  }
-
-  void onFaceTap(String label) {
-    if (label != "NOT RECOGNIZED") {
-      tapped = true;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NextScreen(name: label),
-        ),
-      );
-    }
   }
 
   //toggle camera direction
@@ -408,6 +324,10 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   }
 
   void onPayNowTap(String name) {
+    setState(() {
+      tapped = true;
+      controller = null;
+    });
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -426,7 +346,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
           top: 0.0,
           left: 0.0,
           width: size.width,
-          height: size.height - 500,
+          height: size.height - 250,
           child: Container(
             child: (controller.value.isInitialized)
                 ? AspectRatio(
@@ -442,21 +362,21 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
             top: 0.0,
             left: 0.0,
             width: size.width,
-            height: size.height - 500,
+            height: size.height - 250,
             child: buildResult()),
       );
     }
 
     stackChildren.add(Positioned(
-      top: size.height - 500,
+      top: size.height - 250,
       left: 0,
       width: size.width,
-      height: 500,
+      height: 250,
       child: Container(
         color: Colors.white,
         child: Center(
           child: Container(
-            margin: const EdgeInsets.only(bottom: 40),
+            margin: const EdgeInsets.only(bottom: 30),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -487,7 +407,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
                     },
                   ),
                 ),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -504,14 +423,6 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
                     )
                   ],
                 ),
-                // FloatingActionButton(
-                //   backgroundColor: (_faceFound) ? Colors.blue : Colors.blueGrey,
-                //   child: Icon(Icons.add),
-                //   onPressed: () {
-                //     if (_faceFound) _addLabel();
-                //   },
-                //   heroTag: null,
-                // )
               ],
             ),
           ),
@@ -546,17 +457,11 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   }
 }
 
-// class FaceDetectorPainter extends CustomPainter {
-//   FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2);
 class FaceDetectorPainter extends CustomPainter {
-  FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2,
-      this.onFaceTap, this.size);
+  FaceDetectorPainter(this.absoluteImageSize, this.faces, this.camDire2);
   final Size absoluteImageSize;
-  final Multimap<String, Face>
-      faces; // Assuming faces is a Multimap<String, Face>
+  final Multimap<String, Face> faces;
   CameraLensDirection camDire2;
-  final Function(String) onFaceTap; // Ensure this is correctly typed
-  final Size size; // Ensure this is c
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -611,128 +516,5 @@ class FaceDetectorPainter extends CustomPainter {
   bool shouldRepaint(FaceDetectorPainter oldDelegate) {
     return oldDelegate.absoluteImageSize != absoluteImageSize ||
         oldDelegate.faces != faces;
-  }
-
-  // void handleTap(Offset tapDetails) {
-  //   final double scaleX = size.width / absoluteImageSize.width;
-  //   final double scaleY = size.height / absoluteImageSize.height;
-
-  //   for (String label in faces.keys) {
-  //     for (Face face in faces[label]) {
-  //       final Rect faceRect = Rect.fromLTRB(
-  //         camDire2 == CameraLensDirection.front
-  //             ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-  //             : face.boundingBox.left * scaleX,
-  //         face.boundingBox.top * scaleY,
-  //         camDire2 == CameraLensDirection.front
-  //             ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-  //             : face.boundingBox.right * scaleX,
-  //         face.boundingBox.bottom * scaleY,
-  //       );
-
-  //       if (faceRect.contains(tapDetails)) {
-  //         onFaceTap(label); // Call the callback with the label
-  //         break;
-  //       }
-  //     }
-  //   }
-  // }
-  // void handleTap(Offset tapDetails) {
-  //   // Debug: Log the tap details
-  //   print("Tapped at: $tapDetails");
-
-  //   final double scaleX = size.width / absoluteImageSize.width;
-  //   final double scaleY = size.height / absoluteImageSize.height;
-
-  //   for (String label in faces.keys) {
-  //     for (Face face in faces[label]) {
-  //       // Calculate the bounding box position based on the camera's orientation
-  //       final double left = camDire2 == CameraLensDirection.front
-  //           ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-  //           : face.boundingBox.left * scaleX;
-  //       final double top = face.boundingBox.top * scaleY;
-  //       final double right = camDire2 == CameraLensDirection.front
-  //           ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-  //           : face.boundingBox.right * scaleX;
-  //       final double bottom = face.boundingBox.bottom * scaleY;
-
-  //       // Create a Rect for the face's bounding box
-  //       final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
-
-  //       // Debug: Log the calculated bounding box
-  //       print("Face bounding box: $faceRect");
-
-  //       if (faceRect.contains(tapDetails)) {
-  //         onFaceTap(label); // Call the callback with the label
-  //         break;
-  //       }
-  //     }
-  //   }
-  // }
-  // void handleTap(Offset tapDetails) {
-  //   double minDistance = double.infinity;
-  //   String? tappedLabel;
-
-  //   final double scaleX = size.width / absoluteImageSize.width;
-  //   final double scaleY = size.height / absoluteImageSize.height;
-
-  //   for (String label in faces.keys) {
-  //     for (Face face in faces[label]) {
-  //       final double left = camDire2 == CameraLensDirection.front
-  //           ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-  //           : face.boundingBox.left * scaleX;
-  //       final double top = face.boundingBox.top * scaleY;
-  //       final double right = camDire2 == CameraLensDirection.front
-  //           ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-  //           : face.boundingBox.right * scaleX;
-  //       final double bottom = face.boundingBox.bottom * scaleY;
-
-  //       final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
-
-  //       if (faceRect.contains(tapDetails)) {
-  //         // Calculate the distance from the tap to the center of the face's bounding box
-  //         final double centerX = (left + right) / 2;
-  //         final double centerY = (top + bottom) / 2;
-  //         final double distance = sqrt(pow(tapDetails.dx - centerX, 2) +
-  //             pow(tapDetails.dy - centerY, 2));
-
-  //         // Update the minimum distance and the corresponding label
-  //         if (distance < minDistance) {
-  //           minDistance = distance;
-  //           tappedLabel = label;
-  //         }
-  //       }
-  //     }
-  //   }
-
-  //   // If a face was tapped, call the callback with the label
-  //   if (tappedLabel != null) {
-  //     onFaceTap(tappedLabel);
-  //   }
-  // }
-  void handleTap(Offset tapDetails) {
-    final double scaleX = size.width / absoluteImageSize.width;
-    final double scaleY = size.height / absoluteImageSize.height;
-
-    for (String label in faces.keys) {
-      for (Face face in faces[label]) {
-        final double left = camDire2 == CameraLensDirection.front
-            ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-            : face.boundingBox.left * scaleX;
-        final double top = face.boundingBox.top * scaleY;
-        final double right = camDire2 == CameraLensDirection.front
-            ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-            : face.boundingBox.right * scaleX;
-        final double bottom = face.boundingBox.bottom * scaleY;
-
-        final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
-
-        if (faceRect.contains(tapDetails)) {
-          // If the tap is within the face's bounding box, immediately pass the label to the next screen
-          onFaceTap(label);
-          return; // Exit the method after handling the tap
-        }
-      }
-    }
   }
 }
