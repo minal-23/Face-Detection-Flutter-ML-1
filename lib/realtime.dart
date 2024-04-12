@@ -26,6 +26,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   final TextEditingController _name = new TextEditingController();
   var interpreter;
   List? e1;
+  bool tapped = false;
   Directory? tempDir;
   File? jsonFile;
   bool _faceFound = false;
@@ -34,6 +35,8 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   bool isBusy = false;
   dynamic faceDetector;
   double threshold = 1.0;
+  double zoom = 1.0;
+  double maxZoomLevel = 1.0;
   late Size size;
   late List<Face> faces;
   late CameraDescription description = cameras[1];
@@ -74,7 +77,9 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     // if (jsonFile!.existsSync()) {
     //   data = json.decode(jsonFile!.readAsStringSync());
     // }
-
+    maxZoomLevel = await controller.getMaxZoomLevel();
+    print(
+        "zoooooooooooooooooooooooooooooooooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm$maxZoomLevel");
     controller.startImageStream((image) {
       if (!isBusy) {
         isBusy = true;
@@ -110,49 +115,51 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   }
 
   doFaceDetectionOnFrame() async {
-    dynamic finalResult = Multimap<String, Face>();
-    var frameImg = getInputImage();
-    List<Face> faces = await faceDetector.processImage(frameImg);
-    imglib.Image convertedImage = _convertCameraImage(img!, camDirec);
-    if (faces.length == 0)
-      _faceFound = false;
-    else
-      _faceFound = true;
-    for (Face face in faces) {
-      // Calculate the bounding box with a margin
-      double x = face.boundingBox.left - 10;
-      double y = face.boundingBox.top - 10;
-      double w = face.boundingBox.width + 10;
-      double h = face.boundingBox.height + 10;
+    if (!tapped) {
+      dynamic finalResult = Multimap<String, Face>();
+      var frameImg = getInputImage();
+      List<Face> faces = await faceDetector.processImage(frameImg);
+      imglib.Image convertedImage = _convertCameraImage(img!, camDirec);
+      if (faces.length == 0)
+        _faceFound = false;
+      else
+        _faceFound = true;
+      for (Face face in faces) {
+        // Calculate the bounding box with a margin
+        double x = face.boundingBox.left - 10;
+        double y = face.boundingBox.top - 10;
+        double w = face.boundingBox.width + 10;
+        double h = face.boundingBox.height + 10;
 
-      // Crop the converted image to the face's bounding box
-      // imglib.Image croppedImage = imglib.copyCrop(
-      //     convertedImage, x.round(), y.round(), w.round(), h.round());
-      imglib.Image croppedImage = imglib.copyCrop(
-        convertedImage,
-        x.round(),
-        y.round(),
-        w.round(),
-        h.round(),
-      );
+        // Crop the converted image to the face's bounding box
+        // imglib.Image croppedImage = imglib.copyCrop(
+        //     convertedImage, x.round(), y.round(), w.round(), h.round());
+        imglib.Image croppedImage = imglib.copyCrop(
+          convertedImage,
+          x.round(),
+          y.round(),
+          w.round(),
+          h.round(),
+        );
 
-      // Resize the cropped image if necessary
-      croppedImage = imglib.copyResizeCropSquare(croppedImage, 112);
+        // Resize the cropped image if necessary
+        croppedImage = imglib.copyResizeCropSquare(croppedImage, 112);
 
-      // Run the face recognition model on the processed image
-      String res = await _recog(croppedImage);
-      // print(_recog(croppedImage));
-      finalResult.add(res, face);
+        // Run the face recognition model on the processed image
+        String res = await _recog(croppedImage);
+        // print(_recog(croppedImage));
+        finalResult.add(res, face);
 
-      // Do something with the recognized name, e.g., display it on the screen
-      // print("Recognized face: $recognizedName");
+        // Do something with the recognized name, e.g., display it on the screen
+        // print("Recognized face: $recognizedName");
+      }
+
+      setState(() {
+        // _scanResults = faces;
+        _scanResults = finalResult;
+        isBusy = false;
+      });
     }
-
-    setState(() {
-      // _scanResults = faces;
-      _scanResults = finalResult;
-      isBusy = false;
-    });
   }
 
   imglib.Image _convertCameraImage(
@@ -323,6 +330,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
 
   void onFaceTap(String label) {
     if (label != "NOT RECOGNIZED") {
+      tapped = true;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -424,6 +432,21 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
         ),
       ),
     ));
+    stackChildren.add(Positioned(
+        bottom: 20,
+        left: 0,
+        right: 0,
+        child: Slider(
+          value: zoom,
+          min: 1.0,
+          max: maxZoomLevel, // Use the max zoom level here
+          onChanged: (value) {
+            setState(() {
+              zoom = value;
+              controller.setZoomLevel(value);
+            });
+          },
+        )));
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -504,26 +527,124 @@ class FaceDetectorPainter extends CustomPainter {
         oldDelegate.faces != faces;
   }
 
+  // void handleTap(Offset tapDetails) {
+  //   final double scaleX = size.width / absoluteImageSize.width;
+  //   final double scaleY = size.height / absoluteImageSize.height;
+
+  //   for (String label in faces.keys) {
+  //     for (Face face in faces[label]) {
+  //       final Rect faceRect = Rect.fromLTRB(
+  //         camDire2 == CameraLensDirection.front
+  //             ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
+  //             : face.boundingBox.left * scaleX,
+  //         face.boundingBox.top * scaleY,
+  //         camDire2 == CameraLensDirection.front
+  //             ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
+  //             : face.boundingBox.right * scaleX,
+  //         face.boundingBox.bottom * scaleY,
+  //       );
+
+  //       if (faceRect.contains(tapDetails)) {
+  //         onFaceTap(label); // Call the callback with the label
+  //         break;
+  //       }
+  //     }
+  //   }
+  // }
+  // void handleTap(Offset tapDetails) {
+  //   // Debug: Log the tap details
+  //   print("Tapped at: $tapDetails");
+
+  //   final double scaleX = size.width / absoluteImageSize.width;
+  //   final double scaleY = size.height / absoluteImageSize.height;
+
+  //   for (String label in faces.keys) {
+  //     for (Face face in faces[label]) {
+  //       // Calculate the bounding box position based on the camera's orientation
+  //       final double left = camDire2 == CameraLensDirection.front
+  //           ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
+  //           : face.boundingBox.left * scaleX;
+  //       final double top = face.boundingBox.top * scaleY;
+  //       final double right = camDire2 == CameraLensDirection.front
+  //           ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
+  //           : face.boundingBox.right * scaleX;
+  //       final double bottom = face.boundingBox.bottom * scaleY;
+
+  //       // Create a Rect for the face's bounding box
+  //       final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
+
+  //       // Debug: Log the calculated bounding box
+  //       print("Face bounding box: $faceRect");
+
+  //       if (faceRect.contains(tapDetails)) {
+  //         onFaceTap(label); // Call the callback with the label
+  //         break;
+  //       }
+  //     }
+  //   }
+  // }
+  // void handleTap(Offset tapDetails) {
+  //   double minDistance = double.infinity;
+  //   String? tappedLabel;
+
+  //   final double scaleX = size.width / absoluteImageSize.width;
+  //   final double scaleY = size.height / absoluteImageSize.height;
+
+  //   for (String label in faces.keys) {
+  //     for (Face face in faces[label]) {
+  //       final double left = camDire2 == CameraLensDirection.front
+  //           ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
+  //           : face.boundingBox.left * scaleX;
+  //       final double top = face.boundingBox.top * scaleY;
+  //       final double right = camDire2 == CameraLensDirection.front
+  //           ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
+  //           : face.boundingBox.right * scaleX;
+  //       final double bottom = face.boundingBox.bottom * scaleY;
+
+  //       final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
+
+  //       if (faceRect.contains(tapDetails)) {
+  //         // Calculate the distance from the tap to the center of the face's bounding box
+  //         final double centerX = (left + right) / 2;
+  //         final double centerY = (top + bottom) / 2;
+  //         final double distance = sqrt(pow(tapDetails.dx - centerX, 2) +
+  //             pow(tapDetails.dy - centerY, 2));
+
+  //         // Update the minimum distance and the corresponding label
+  //         if (distance < minDistance) {
+  //           minDistance = distance;
+  //           tappedLabel = label;
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   // If a face was tapped, call the callback with the label
+  //   if (tappedLabel != null) {
+  //     onFaceTap(tappedLabel);
+  //   }
+  // }
   void handleTap(Offset tapDetails) {
     final double scaleX = size.width / absoluteImageSize.width;
     final double scaleY = size.height / absoluteImageSize.height;
 
     for (String label in faces.keys) {
       for (Face face in faces[label]) {
-        final Rect faceRect = Rect.fromLTRB(
-          camDire2 == CameraLensDirection.front
-              ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
-              : face.boundingBox.left * scaleX,
-          face.boundingBox.top * scaleY,
-          camDire2 == CameraLensDirection.front
-              ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
-              : face.boundingBox.right * scaleX,
-          face.boundingBox.bottom * scaleY,
-        );
+        final double left = camDire2 == CameraLensDirection.front
+            ? (absoluteImageSize.width - face.boundingBox.right) * scaleX
+            : face.boundingBox.left * scaleX;
+        final double top = face.boundingBox.top * scaleY;
+        final double right = camDire2 == CameraLensDirection.front
+            ? (absoluteImageSize.width - face.boundingBox.left) * scaleX
+            : face.boundingBox.right * scaleX;
+        final double bottom = face.boundingBox.bottom * scaleY;
+
+        final Rect faceRect = Rect.fromLTRB(left, top, right, bottom);
 
         if (faceRect.contains(tapDetails)) {
-          onFaceTap(label); // Call the callback with the label
-          break;
+          // If the tap is within the face's bounding box, immediately pass the label to the next screen
+          onFaceTap(label);
+          return; // Exit the method after handling the tap
         }
       }
     }
