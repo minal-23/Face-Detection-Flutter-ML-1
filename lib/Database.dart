@@ -234,7 +234,7 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryRowByPayee(String payee) async {
     return await _db.query(
       table,
-      where: '$columnPayee = ?',
+      where: '$columnUpiId = ?',
       whereArgs: [payee],
     );
   }

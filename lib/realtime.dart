@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 import 'package:face_detection/Database.dart';
+import 'package:face_detection/RecognizedPerson.dart';
 import 'package:face_detection/nextscreen.dart';
 import 'package:quiver/collection.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,6 +38,8 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   double threshold = 1.0;
   double zoom = 1.0;
   double maxZoomLevel = 1.0;
+  Set<RecognizedInfo> recognizedNames = {};
+
   late Size size;
   late List<Face> faces;
   late CameraDescription description = cameras[1];
@@ -115,6 +118,9 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   }
 
   doFaceDetectionOnFrame() async {
+    // setState(() {
+    //   recognizedNames.clear();
+    // });
     if (!tapped) {
       dynamic finalResult = Multimap<String, Face>();
       var frameImg = getInputImage();
@@ -146,9 +152,16 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
         croppedImage = imglib.copyResizeCropSquare(croppedImage, 112);
 
         // Run the face recognition model on the processed image
-        String res = await _recog(croppedImage);
+        Map<String, String> res = await _recog(croppedImage);
         // print(_recog(croppedImage));
-        finalResult.add(res, face);
+        finalResult.add(res["name"], face);
+
+        if (res["name"] != "NOT RECOGNIZED") {
+          setState(() {
+            recognizedNames
+                .add(RecognizedInfo(name: res["name"]!, upiId: res["upiId"]!));
+          });
+        }
 
         // Do something with the recognized name, e.g., display it on the screen
         // print("Recognized face: $recognizedName");
@@ -195,14 +208,26 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     return img1;
   }
 
-  Future<String> _recog(imglib.Image img) async {
+  // Future<String> _recog(imglib.Image img) async {
+  //   List input = imageToByteListFloat32(img, 112, 128, 128);
+  //   input = input.reshape([1, 112, 112, 3]);
+  //   List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
+  //   interpreter.run(input, output);
+  //   output = output.reshape([192]);
+  //   e1 = List.from(output);
+  //   Map<String, String> result =
+  //       await compare(e1!); // This returns a Future<Map<String, String>>
+  //   return result['name']!;
+  // }
+  Future<Map<String, String>> _recog(imglib.Image img) async {
     List input = imageToByteListFloat32(img, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
     List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
     interpreter.run(input, output);
     output = output.reshape([192]);
     e1 = List.from(output);
-    return await compare(e1!);
+    return await compare(
+        e1!); // This now correctly returns a Future<Map<String, String>>
   }
 
   // String compare(List currEmb) {
@@ -220,27 +245,52 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
   //   print(minDist.toString() + " " + predRes);
   //   return predRes;
   // }
-  Future<String> compare(List currEmb) async {
+  // Future<String> compare(List currEmb) async {
+  //   DatabaseHelper dbHelper = DatabaseHelper();
+  //   List<Map<String, dynamic>> rows = await dbHelper.queryAllRows();
+  //   if (rows.isEmpty) {
+  //     return "NO FACE SAVED";
+  //   }
+  //   double minDist = 999;
+  //   String predRes = "NOT RECOGNIZED";
+  //   String predUpi = "";
+
+  //   for (Map row in rows) {
+  //     // Decode the JSON string back into a list
+  //     List e1 = json.decode(row[DatabaseHelper.columnEmbedding]);
+  //     double currDist = euclideanDistance(e1, currEmb);
+  //     if (currDist <= threshold && currDist < minDist) {
+  //       minDist = currDist;
+  //       predUpi = row[DatabaseHelper.columnUpiId];
+  //       predRes =
+  //           row[DatabaseHelper.columnPayee]; // Use the payee name as the label
+  //     }
+  //   }
+  //   print(minDist.toString() + " " + predRes);
+  //   return predRes;
+  // }
+  Future<Map<String, String>> compare(List currEmb) async {
     DatabaseHelper dbHelper = DatabaseHelper();
     List<Map<String, dynamic>> rows = await dbHelper.queryAllRows();
     if (rows.isEmpty) {
-      return "NO FACE SAVED";
+      return {"name": "NO FACE SAVED", "upiId": ""};
     }
     double minDist = 999;
     String predRes = "NOT RECOGNIZED";
+    String predUpi = "";
 
     for (Map row in rows) {
-      // Decode the JSON string back into a list
       List e1 = json.decode(row[DatabaseHelper.columnEmbedding]);
       double currDist = euclideanDistance(e1, currEmb);
       if (currDist <= threshold && currDist < minDist) {
         minDist = currDist;
+        predUpi = row[DatabaseHelper.columnUpiId];
         predRes =
             row[DatabaseHelper.columnPayee]; // Use the payee name as the label
       }
     }
     print(minDist.toString() + " " + predRes);
-    return predRes;
+    return {"name": predRes, "upiId": predUpi};
   }
 
   double euclideanDistance(List e1, List e2) {
@@ -357,6 +407,15 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
     initializeCamera();
   }
 
+  void onPayNowTap(String name) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NextScreen(name: name),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     List<Widget> stackChildren = [];
@@ -367,7 +426,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
           top: 0.0,
           left: 0.0,
           width: size.width,
-          height: size.height - 250,
+          height: size.height - 500,
           child: Container(
             child: (controller.value.isInitialized)
                 ? AspectRatio(
@@ -383,16 +442,16 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
             top: 0.0,
             left: 0.0,
             width: size.width,
-            height: size.height - 250,
+            height: size.height - 500,
             child: buildResult()),
       );
     }
 
     stackChildren.add(Positioned(
-      top: size.height - 200,
+      top: size.height - 500,
       left: 0,
       width: size.width,
-      height: 250,
+      height: 500,
       child: Container(
         color: Colors.white,
         child: Center(
@@ -402,6 +461,33 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: recognizedNames.length,
+                    itemBuilder: (context, index) {
+                      final RecognizedInfo recognizedInfo =
+                          recognizedNames.elementAt(index);
+                      return ListTile(
+                        title: Text(
+                          recognizedInfo.name,
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black),
+                        ),
+                        subtitle: Text(
+                          "${recognizedInfo.upiId}",
+                          style: TextStyle(fontSize: 10, color: Colors.black),
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () => onPayNowTap(recognizedInfo.upiId),
+                          child: Text('Pay Now'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -433,7 +519,7 @@ class _RealTimeFaceDetectionState extends State<RealTimeFaceDetection> {
       ),
     ));
     stackChildren.add(Positioned(
-        bottom: 20,
+        bottom: 10,
         left: 0,
         right: 0,
         child: Slider(
